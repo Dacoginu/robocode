@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>RoboCode</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cell: 48px;
+  --earth: #0a1508;
+  --bg: #131f12;
+  --panel: #0d190c;
+  --border: #1e3a1a;
+  --accent: #a8e063;
+}
+@media (max-height: 430px) { :root { --cell: 32px; } }
+
+*{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent }
+html,body{ width:100%; height:100%; overflow:hidden; background:#0a0f0a }
+body{ display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif }
+
+/* WRAPPER */
+.gw{ display:flex; flex-direction:column; gap:6px; padding:8px; background:var(--bg); border-radius:14px; border:1px solid var(--border); width:fit-content; max-width:100vw }
+
+/* LEVEL BAR */
+.level-bar{ display:flex; align-items:center; gap:6px }
+.lbtn{
+  width:30px; height:30px; border:none; border-radius:7px;
+  background:#1e3a1a; color:#5a8a5a;
+  font-family:'Fredoka One',cursive; font-size:14px;
+  cursor:pointer; touch-action:manipulation; flex-shrink:0;
+}
+.lbtn.active{ background:var(--accent); color:#0f1f0f }
+.lbtn:active{ transform:scale(.9) }
+.hint-text{ font-size:11px; color:#4a7a4a; flex:1; line-height:1.3 }
+
+/* MAIN ROW */
+.top-row{ display:flex; gap:6px; align-items:stretch }
+
+/* STACK */
+.stack-panel{
+  width:150px; background:var(--panel);
+  border-radius:10px; border:1px solid var(--border);
+  padding:8px; display:flex; flex-direction:column; gap:5px;
+}
+.ptitle{ font-family:'Fredoka One',cursive; color:var(--accent); font-size:13px; flex-shrink:0 }
+.sel-ind{ font-size:10px; color:#4a6a4a; min-height:12px; flex-shrink:0 }
+.stack-list{
+  flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:3px;
+  scrollbar-width:thin; scrollbar-color:#1e3a1a transparent;
+}
+.stack-list::-webkit-scrollbar{ width:3px }
+.stack-list::-webkit-scrollbar-thumb{ background:#1e3a1a; border-radius:3px }
+.empty-hint{ font-size:10px; color:#2e4a2e; font-style:italic; padding:4px 3px }
+.btn-row{ display:flex; gap:5px; flex-shrink:0 }
+.run-btn{
+  flex:1; height:36px; border:none; border-radius:8px;
+  background:var(--accent); color:#0f1f0f;
+  font-family:'Fredoka One',cursive; font-size:14px;
+  cursor:pointer; touch-action:manipulation;
+}
+.run-btn:active{ transform:scale(.95) }
+.clear-btn{
+  width:36px; height:36px; border:none; border-radius:8px;
+  background:#c0392b; color:#fff; font-size:15px;
+  cursor:pointer; touch-action:manipulation;
+}
+.clear-btn:active{ transform:scale(.95) }
+
+/* GRID PANEL */
+.grid-panel{
+  background:var(--panel); border-radius:10px; border:1px solid var(--border);
+  padding:8px; display:flex; flex-direction:column; gap:5px;
+}
+.grid-title{
+  font-family:'Fredoka One',cursive; color:var(--accent); font-size:13px;
+  display:flex; align-items:center; gap:6px; flex-shrink:0;
+}
+
+/* GAME GRID */
+.gamegrid{
+  display:grid;
+  grid-template-columns:repeat(6,var(--cell));
+  grid-template-rows:repeat(6,var(--cell));
+  gap:2px; background:var(--earth); padding:3px;
+  border-radius:8px; flex-shrink:0;
+}
+.cell{
+  width:var(--cell); height:var(--cell);
+  border-radius:3px; position:relative;
+  overflow:hidden; image-rendering:pixelated; image-rendering:crisp-edges;
+}
+
+/* TILES */
+.t-grass { background:#2d5a1b url('tile_0002.png') 0 0/100% 100% }
+.t-grassd{ background:#3a7a22 url('tile_0003.png') 0 0/100% 100% }
+.t-tree  { background:#1a4a1a url('pom.png')       0 0/100% 100% }
+.t-treed { background:#143814 url('pom.png')       0 0/100% 100%; filter:brightness(.85) }
+.t-water { background:#1a5fa8 url('water1.png')    0 0/100% 100% }
+.t-waterd{ background:#1650a0 url('water2.png')    0 0/100% 100% }
+.t-rock  { background:#50555e url('rock.png')      0 0/100% 100% }
+.t-rockd { background:#404550 url('rock.png')      0 0/100% 100%; filter:brightness(.85) }
+.t-finish{ background:#2d5a1b url('tile_0002.png') 0 0/100% 100% }
+
+@keyframes goalPulse{ 0%,100%{box-shadow:inset 0 0 0 2px #f0a500} 50%{box-shadow:inset 0 0 0 3px #ffe066} }
+.t-finish{ animation:goalPulse 1.4s ease infinite }
+
+/* SPRITES */
+.tile-e{
+  position:absolute; top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  font-size:calc(var(--cell)*.42);
+  line-height:1; pointer-events:none; z-index:2;
+}
+.rob-img{
+  position:absolute; top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  width:88%; height:88%; object-fit:contain;
+  image-rendering:pixelated; image-rendering:crisp-edges;
+  pointer-events:none; z-index:3;
+}
+
+@keyframes hitFlash{ 0%{filter:brightness(1)} 40%{filter:brightness(3) saturate(0)} 100%{filter:brightness(1)} }
+.hit{ animation:hitFlash .3s ease }
+@keyframes winBounce{ 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.3)} }
+.win-anim{ animation:winBounce .35s ease infinite }
+
+.status{
+  font-family:'Fredoka One',cursive; font-size:11px;
+  color:var(--accent); min-height:16px; flex-shrink:0;
+}
+
+/* PALETTE */
+.palette{
+  background:var(--panel); border-radius:10px; border:1px solid var(--border);
+  padding:6px 8px; display:flex; align-items:center; gap:5px;
+}
+.bb{
+  border:none; border-radius:7px; height:34px; padding:0 8px;
+  font-family:'Nunito',sans-serif; font-size:12px; font-weight:800;
+  cursor:pointer; color:#fff; display:flex; align-items:center;
+  gap:4px; white-space:nowrap; flex:1; justify-content:center;
+  touch-action:manipulation;
+}
+.bb:active{ transform:scale(.94) }
+.b-mv{ background:#2980d9 }
+.b-tr{ background:#e67e22 }
+.b-rp{ background:#6c3fd4 }
+.b-if{ background:#00956e }
+.sep{ width:1px; height:24px; background:var(--border); flex-shrink:0 }
+
+/* STACK BLOCKS */
+.sblock{
+  border-radius:6px; padding:4px 7px; font-size:11px; font-weight:700;
+  display:flex; align-items:center; gap:4px; color:#fff; min-height:26px;
+}
+.sblock .del{ margin-left:auto; opacity:.4; font-size:10px; padding:1px 3px; cursor:pointer }
+
+.cblock{
+  border-radius:7px; padding:3px 5px;
+  display:flex; flex-direction:column; gap:2px;
+  border:2px solid rgba(255,255,255,.12);
+}
+.chdr{
+  font-size:11px; font-weight:700; display:flex; align-items:center;
+  gap:3px; padding:2px 4px; color:#fff; cursor:pointer;
+  border-radius:4px; min-height:26px;
+}
+.chdr .del{ margin-left:auto; opacity:.4; font-size:10px; padding:1px 3px; cursor:pointer }
+.count-btn{
+  width:16px; height:16px; border:none; border-radius:3px;
+  background:rgba(255,255,255,.2); color:#fff; font-size:12px;
+  line-height:1; cursor:pointer; flex-shrink:0; padding:0;
+  display:flex; align-items:center; justify-content:center;
+}
+.count-btn:active{ background:rgba(255,255,255,.4) }
+.count-val{
+  min-width:14px; text-align:center; font-size:12px;
+  font-weight:800; color:#ffe066;
+}
+
+.cinner{
+  padding-left:9px; display:flex; flex-direction:column;
+  gap:2px; min-height:18px;
+  border-left:2px solid rgba(255,255,255,.18); margin-left:4px;
+}
+</style>
+</head>
+<body>
+<div class="gw">
+
+  <div class="level-bar">
+    <button class="lbtn active" id="lb0" onclick="loadLevel(0)">1</button>
+    <button class="lbtn"        id="lb1" onclick="loadLevel(1)">2</button>
+    <button class="lbtn"        id="lb2" onclick="loadLevel(2)">3</button>
+    <span class="hint-text" id="hintText"></span>
+  </div>
+
+  <div class="top-row">
+
+    <div class="stack-panel">
+      <div class="ptitle">📋 Program</div>
+      <div class="sel-ind" id="selInd">📋 Nivel principal</div>
+      <div class="stack-list" id="stackList">
+        <div class="empty-hint">Apasă blocuri din jos…</div>
+      </div>
+      <div class="btn-row">
+        <button class="run-btn"   onclick="runProgram()">▶ Run</button>
+        <button class="clear-btn" onclick="clearStack()">✕</button>
+      </div>
+    </div>
+
+    <div class="grid-panel">
+      <div class="grid-title">🌿 Lumea robotului</div>
+      <div class="gamegrid" id="grid"></div>
+      <div class="status" id="status">🤖 Programează robotul și apasă Run!</div>
+    </div>
+
+  </div>
+
+  <div class="palette">
+    <button class="bb b-mv" onclick="addBlock('forward')">⬆️ Înainte</button>
+    <button class="bb b-mv" onclick="addBlock('back')">⬇️ Înapoi</button>
+    <button class="bb b-tr" onclick="addBlock('left')">↩️ Stânga</button>
+    <button class="bb b-tr" onclick="addBlock('right')">↪️ Dreapta</button>
+    <div class="sep"></div>
+    <button class="bb b-rp" onclick="addBlock('repeat')">🔁 Repetă N×</button>
+    <button class="bb b-if" onclick="addBlock('if')">❓ Dacă obstacol</button>
+  </div>
+
+</div>
+
+<script>
+// ── SPRITES (dir: 0=Nord 1=Est 2=Sud 3=Vest) ──
+const SPRITES = ['robosus.png','robodreapta.png','robojos.png','robostanga.png'];
+
+// ── TILE MAP ──
+// 0 = liber, 1 = pom, 2 = apă, 3 = rock, 'S' = start, 'F' = finish
+const TILE_CLS = {
+  0: ['t-grass','t-grassd'],
+  1: ['t-tree', 't-treed'],
+  2: ['t-water','t-waterd'],
+  3: ['t-rock', 't-rockd'],
+  S: ['t-grass','t-grassd'],
+  F: ['t-finish','t-finish'],
+};
+const WALKABLE = v => v === 0 || v === 'S' || v === 'F';
+
+// ── NIVELE ──
+const LEVELS = [
+  {
+    name:'Nivel 1', startDir:1,
+    hint:'💡 Nivel 1 — folosești Înainte + Întoarce dreapta/stânga',
+    map:[
+      ['S', 0,  0,  0,  0,  0],
+      [  3, 3,  3,  3,  3,  0],
+      [  0, 0,  0,  0,  0,  0],
+      [  0, 3,  3,  3,  3,  3],
+      [  0, 0,  0,  0,  0,'F'],
+      [  0, 0,  0,  0,  0,  0],
+    ]
+  },
+  {
+    name:'Nivel 2', startDir:1,
+    hint:'💡 Nivel 2 — folosești "Dacă obstacol" pentru a ocoli pomul',
+    map:[
+      ['S', 0,  1,  0, 'F', 0],
+      [  0, 0,  0,  0,  0,  0],
+      [  0, 0,  0,  0,  0,  0],
+      [  0, 0,  0,  0,  0,  0],
+      [  0, 0,  0,  0,  0,  0],
+      [  0, 0,  0,  0,  0,  0],
+    ]
+  },
+  {
+    name:'Nivel 3', startDir:2,
+    hint:'💡 Nivel 3 — folosești Repetă N× și schimbi N cât ai nevoie!',
+    map:[
+      ['S', 2,  2,  2,  2,  3],
+      [  0, 2,  0,  0,  0,  3],
+      [  0, 2,  0,  3,  0,  3],
+      [  0, 0,  0,  3,  0,  3],
+      [  3, 3,  3,  3,  0,  3],
+      [  3, 3,  3,  3, 'F', 3],
+    ]
+  }
+];
+
+// ── STATE ──
+let curLevel = 0;
+let robot = {x:0, y:0, dir:1};
+let stack = [], sel = null, running = false, won = false;
+
+const DIRS = ['Nord','Est','Sud','Vest'];
+const MV   = [{dx:0,dy:-1},{dx:1,dy:0},{dx:0,dy:1},{dx:-1,dy:0}];
+
+// ── HELPERS ──
+const bc = t => t==='forward'||t==='back'?'#2980d9':t==='left'||t==='right'?'#e67e22':t==='repeat'?'#6c3fd4':'#00956e';
+const bl = t => ({
+  forward:'⬆️ Înainte', back:'⬇️ Înapoi',
+  left:'↩️ Stânga', right:'↪️ Dreapta',
+  repeat:'🔁 Repetă', if:'❓ Dacă obstacol'
+})[t] || t;
+
+function levelMap(){ return LEVELS[curLevel].map; }
+function cellVal(x,y){ const m=levelMap(); return (y>=0&&y<m.length&&x>=0&&x<m[0].length)?m[y][x]:null; }
+function isWalkable(x,y){ return WALKABLE(cellVal(x,y)); }
+function isBlocked(x,y){
+  const v=cellVal(x,y);
+  return v===null || (!WALKABLE(v));
+}
+
+function tileClass(x,y){
+  const v = cellVal(x,y);
+  const key = (v==='S'||v==='F') ? v : v;
+  const cls = TILE_CLS[key] || TILE_CLS[0];
+  return (x+y)%2===0 ? cls[0] : cls[1];
+}
+
+function findStart(){
+  const m=levelMap();
+  for(let y=0;y<m.length;y++)
+    for(let x=0;x<m[y].length;x++)
+      if(m[y][x]==='S') return {x,y};
+  return {x:0,y:0};
+}
+
+// ── GRID ──
+function initGrid(){
+  const g=document.getElementById('grid'); g.innerHTML='';
+  const m=levelMap();
+  const rows=m.length, cols=m[0].length;
+  g.style.gridTemplateColumns=`repeat(${cols},var(--cell))`;
+  g.style.gridTemplateRows=`repeat(${rows},var(--cell))`;
+  for(let y=0;y<rows;y++) for(let x=0;x<cols;x++){
+    const c=document.createElement('div');
+    c.className='cell '+tileClass(x,y);
+    c.id='c'+x+'_'+y;
+    const v=m[y][x];
+    if(v==='F'){
+      const e=document.createElement('span'); e.className='tile-e'; e.textContent='⚙️'; c.appendChild(e);
+    }
+    if(x===robot.x&&y===robot.y) placeRobot(c);
+    g.appendChild(c);
+  }
+}
+
+function placeRobot(cell){
+  const img=document.createElement('img');
+  img.className='rob-img'; img.id='rob'; img.src=SPRITES[robot.dir];
+  img.onerror=function(){
+    const s=document.createElement('span');
+    s.id='rob'; s.className='tile-e'; s.style.zIndex='3'; s.textContent='🤖';
+    this.replaceWith(s);
+  };
+  cell.appendChild(img);
+}
+function moveRob(){
+  const old=document.getElementById('rob'); if(old) old.remove();
+  const nc=document.getElementById('c'+robot.x+'_'+robot.y); if(nc) placeRobot(nc);
+}
+function flashCell(id){
+  const c=document.getElementById(id); if(!c) return;
+  c.classList.remove('hit'); void c.offsetWidth; c.classList.add('hit');
+  setTimeout(()=>c.classList.remove('hit'),350);
+}
+
+// ── LEVELS ──
+function loadLevel(n){
+  if(running) return;
+  curLevel=n;
+  document.querySelectorAll('.lbtn').forEach((b,i)=>b.classList.toggle('active',i===n));
+  document.getElementById('hintText').textContent=LEVELS[n].hint;
+  const s=findStart();
+  robot={x:s.x, y:s.y, dir:LEVELS[n].startDir};
+  stack=[]; sel=null; won=false;
+  renderStack(); initGrid();
+  setS('🤖 Programează robotul și apasă Run!');
+}
+
+// ── STACK ──
+function addBlock(type){
+  if(running) return;
+  const n = (type==='repeat'||type==='if')
+    ? {type, children:[], id:Date.now(), count:3}
+    : {type, id:Date.now()};
+  (sel?sel.children:stack).push(n);
+  if(type==='repeat'||type==='if') sel=n;
+  renderStack();
+}
+function clearStack(){
+  if(running) return;
+  stack=[]; sel=null; won=false; renderStack();
+  const s=findStart();
+  robot={x:s.x,y:s.y,dir:LEVELS[curLevel].startDir};
+  initGrid(); setS('🤖 Programează robotul și apasă Run!');
+}
+function setS(m){ document.getElementById('status').textContent=m; }
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+function renderStack(){
+  const list=document.getElementById('stackList');
+  list.innerHTML='';
+  if(!stack.length) list.innerHTML='<div class="empty-hint">Apasă blocuri din jos…</div>';
+  else stack.forEach(n=>list.appendChild(rNode(n)));
+  const ind=document.getElementById('selInd');
+  ind.textContent=sel?'✅ În: '+bl(sel.type):'📋 Nivel principal';
+  ind.style.color=sel?'#a8e063':'#4a6a4a';
+}
+
+function rNode(node){
+  if(node.type==='repeat'||node.type==='if'){
+    const w=document.createElement('div'); w.className='cblock';
+    w.style.background=node.type==='repeat'?'#2a1a55':'#0a3a2a';
+    w.style.borderColor=bc(node.type);
+    const h=document.createElement('div'); h.className='chdr';
+    if(sel&&sel.id===node.id) h.style.background='rgba(255,255,255,.1)';
+    h.onclick=e=>{
+      if(e.target.classList.contains('del')||e.target.classList.contains('count-btn')) return;
+      sel=(sel&&sel.id===node.id)?null:node; renderStack();
+    };
+
+    const lbl=document.createElement('span');
+    lbl.textContent=node.type==='repeat'?'🔁 Repetă':'❓ Dacă obstacol';
+    lbl.style.flex='1';
+    h.appendChild(lbl);
+
+    if(node.type==='repeat'){
+      const minus=document.createElement('button');
+      minus.className='count-btn'; minus.textContent='−';
+      minus.onclick=e=>{e.stopPropagation();node.count=Math.max(1,node.count-1);renderStack();};
+      const val=document.createElement('span');
+      val.className='count-val'; val.textContent=node.count;
+      const plus=document.createElement('button');
+      plus.className='count-btn'; plus.textContent='+';
+      plus.onclick=e=>{e.stopPropagation();node.count=Math.min(9,node.count+1);renderStack();};
+      h.appendChild(minus); h.appendChild(val); h.appendChild(plus);
+    }
+
+    const del=document.createElement('span'); del.className='del';
+    del.textContent='✕'; del.onclick=e=>{e.stopPropagation();delN(node.id);};
+    h.appendChild(del);
+    w.appendChild(h);
+
+    const inner=document.createElement('div'); inner.className='cinner';
+    if(!node.children.length){
+      const emp=document.createElement('div'); emp.className='empty-hint'; emp.textContent='(gol)';
+      inner.appendChild(emp);
+    } else {
+      node.children.forEach(ch=>inner.appendChild(rNode(ch)));
+    }
+    w.appendChild(inner); return w;
+  }
+  const b=document.createElement('div'); b.className='sblock'; b.style.background=bc(node.type);
+  const del=document.createElement('span'); del.className='del'; del.textContent='✕';
+  del.onclick=e=>{e.stopPropagation();delN(node.id);};
+  b.innerHTML=bl(node.type); b.appendChild(del); return b;
+}
+
+function delN(id){
+  function rm(arr){
+    const i=arr.findIndex(n=>n.id===id);
+    if(i!==-1){arr.splice(i,1);return true;}
+    for(const n of arr) if(n.children&&rm(n.children)) return true;
+    return false;
+  }
+  rm(stack); if(sel&&sel.id===id) sel=null; renderStack();
+}
+
+// ── EXECUTION ──
+async function execN(node){
+  if(won) return;
+  if(node.type==='forward'||node.type==='back'){
+    const dir=node.type==='back'?(robot.dir+2)%4:robot.dir;
+    const m=MV[dir]; const nx=robot.x+m.dx, ny=robot.y+m.dy;
+    if(isWalkable(nx,ny)){
+      robot.x=nx; robot.y=ny; moveRob();
+      setS((node.type==='forward'?'⬆️':'⬇️')+' Mers → ('+robot.x+','+robot.y+')');
+      if(cellVal(nx,ny)==='F'){
+        await sleep(200);
+        document.getElementById('rob')?.classList.add('win-anim');
+        setS('🎉 Bravo! Robotul a ajuns la destinație!');
+        won=true; return;
+      }
+    } else {
+      const inB=nx>=0&&nx<levelMap()[0].length&&ny>=0&&ny<levelMap().length;
+      if(inB) flashCell('c'+nx+'_'+ny);
+      const v=cellVal(nx,ny);
+      const obs=!inB?'margine':v===1?'copac 🌳':v===2?'apă 🌊':'stâncă 🪨';
+      setS('💥 Blocat de '+obs+'!');
+    }
+    await sleep(300);
+  }
+  else if(node.type==='left'){
+    robot.dir=(robot.dir+3)%4; moveRob();
+    setS('↩️ Stânga → '+DIRS[robot.dir]); await sleep(280);
+  }
+  else if(node.type==='right'){
+    robot.dir=(robot.dir+1)%4; moveRob();
+    setS('↪️ Dreapta → '+DIRS[robot.dir]); await sleep(280);
+  }
+  else if(node.type==='repeat'){
+    for(let i=0;i<node.count&&!won;i++){
+      setS('🔁 Repetare '+(i+1)+'/'+node.count);
+      for(const ch of node.children){await execN(ch); if(won) return;}
+    }
+  }
+  else if(node.type==='if'){
+    const m=MV[robot.dir]; const nx=robot.x+m.dx, ny=robot.y+m.dy;
+    if(isBlocked(nx,ny)){
+      const v=cellVal(nx,ny);
+      const obs=v===null?'margine':v===1?'copac 🌳':v===2?'apă 🌊':'stâncă 🪨';
+      setS('❓ Obstacol detectat: '+obs+' → execut blocurile');
+      await sleep(300);
+      for(const ch of node.children){await execN(ch); if(won) return;}
+    } else {
+      setS('❓ Niciun obstacol → skip'); await sleep(250);
+    }
+  }
+}
+
+async function runProgram(){
+  if(running) return;
+  if(!stack.length){setS('⚠️ Adaugă blocuri mai întâi!'); return;}
+  running=true; won=false;
+  const s=findStart();
+  robot={x:s.x,y:s.y,dir:LEVELS[curLevel].startDir};
+  initGrid(); await sleep(120); setS('▶️ Rulează...');
+  for(const n of stack){await execN(n); if(won) break;}
+  if(!won) setS('⏹ Gata. Robot la ('+robot.x+','+robot.y+') → '+DIRS[robot.dir]);
+  running=false;
+}
+
+// ── INIT ──
+loadLevel(0);
+</script>
+</body>
+</html>
